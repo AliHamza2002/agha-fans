@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/* Custom Color Scheme - Modern Professional Theme */
+:root {
+  --primary: 99 102 241; /* Indigo */
+  --primary-light: 129 140 248;
+  --primary-dark: 79 70 229;
+  --secondary: 139 92 246; /* Purple */
+  --accent: 236 72 153; /* Pink */
+  --success: 34 197 94; /* Green */
+  --warning: 251 146 60; /* Orange */
+  --danger: 239 68 68; /* Red */
+  --info: 59 130 246; /* Blue */
+}
+
+/* App base styles */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 text-slate-900 antialiased;
+  background-attachment: fixed;
+}
+
+/* Custom utility classes */
+.bg-brand {
+  background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--secondary)) 100%);
+}
+
+.bg-brand-light {
+  background: linear-gradient(135deg, rgb(var(--primary-light)) 0%, rgb(var(--secondary)) 100%);
+}
+
+.bg-brand-hover:hover {
+  background: linear-gradient(135deg, rgb(var(--primary-dark)) 0%, rgb(var(--secondary)) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3);
+}
+
+.shadow-soft {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+.shadow-soft {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, transform, box-shadow;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Toast and Dialog Animations */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* Print Styles for Receipt */
+@media print {
+  body {
+    background: white !important;
+  }
+  
+  header, aside, button, .no-print {
+    display: none !important;
+  }
+  
+  main {
+    padding: 0 !important;
+  }
+  
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+  
+  .print\:border-0 {
+    border: 0 !important;
+  }
+}
