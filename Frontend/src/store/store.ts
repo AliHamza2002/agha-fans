@@ -197,7 +197,7 @@ function generateDummyData(): Pick<StoreState, 'materials' | 'parties' | 'transa
 		}
 	});
 
-	transactionsByParty.forEach((partyTransactions, partyId) => {
+	transactionsByParty.forEach((partyTransactions) => {
 		partyTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 		let cumulativeTotal = 0;
 		partyTransactions.forEach(t => {

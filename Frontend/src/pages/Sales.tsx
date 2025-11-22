@@ -39,7 +39,14 @@ export default function Sales() {
 		navigate(`/sales/party-details/${partyId}`);
 	};
 
-	const handleSaveBuyer = (buyerData: any) => {
+	const handleSaveBuyer = (buyerData: {
+		date: string;
+		buyerName: string;
+		contact?: string;
+		address?: string;
+		items: Array<{ itemName: string; itemPrice: number }>;
+		totalAmount: number;
+	}) => {
 		// Store as pending buyer (not yet posted)
 		setPendingBuyer(buyerData);
 		setModalOpen(false);

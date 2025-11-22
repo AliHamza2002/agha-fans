@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useStore } from '../store/store';
+import { useStore, type TransactionType } from '../store/store';
 import { ArrowLeft, FileText, Pencil, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '../components/Toast';
@@ -9,10 +9,17 @@ import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog';
 export default function SalesPartyDetails() {
 	const { partyId } = useParams<{ partyId: string }>();
 	const navigate = useNavigate();
-	const { parties, transactions, materials, updateTransaction, removeTransaction } = useStore();
+	const { parties, transactions, updateTransaction, removeTransaction } = useStore();
 	
 	const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
-	const [editForm, setEditForm] = useState<any>(null);
+	const [editForm, setEditForm] = useState<{
+		date: string;
+		materialId: string;
+		type: TransactionType;
+		quantity: number;
+		unitPrice: number;
+		notes: string;
+	} | null>(null);
 	const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; transactionId: string }>({ 
 		open: false, 
 		transactionId: '' 
@@ -60,7 +67,15 @@ export default function SalesPartyDetails() {
 
 	const totalAmount = partyTransactions.reduce((sum, t) => sum + (t.quantity * t.unitPrice), 0);
 
-	const handleEdit = (transaction: any) => {
+	const handleEdit = (transaction: {
+		id: string;
+		date: string;
+		materialId: string;
+		type: TransactionType;
+		quantity: number;
+		unitPrice: number;
+		notes?: string;
+	}) => {
 		setEditingTransaction(transaction.id);
 		setEditForm({
 			date: transaction.date,
@@ -73,6 +88,8 @@ export default function SalesPartyDetails() {
 	};
 
 	const handleSaveEdit = () => {
+		if (!editForm) return;
+		
 		if (!editForm.materialId) {
 			toast.error('Please select a material');
 			return;
@@ -91,7 +108,7 @@ export default function SalesPartyDetails() {
 			toast.success('Transaction updated successfully');
 			setEditingTransaction(null);
 			setEditForm(null);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to update transaction');
 		}
 	};
@@ -105,7 +122,7 @@ export default function SalesPartyDetails() {
 		try {
 			removeTransaction(deleteDialog.transactionId);
 			toast.success('Transaction deleted successfully');
-		} catch (error) {
+		} catch {
 			toast.error('Failed to delete transaction');
 		}
 	};
@@ -186,7 +203,7 @@ export default function SalesPartyDetails() {
 							<tbody>
 								{partyTransactions.map(transaction => (
 									<tr key={transaction.id} className="border-b border-slate-100 hover:bg-indigo-50/50 transition">
-										{editingTransaction === transaction.id ? (
+										{editingTransaction === transaction.id && editForm ? (
 											<>
 												<td className="p-3">
 													<input

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import type { Material } from '../store/store';
-import type { LocalBuyerData, BuyerItem } from '../contexts/LocalBuyerContext';
+import type { LocalBuyerData } from '../contexts/LocalBuyerContext';
 import { toast } from './Toast';
 
 interface AddBuyerModalProps {
@@ -175,7 +175,7 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 						</div>
 
 						<div className="space-y-3">
-							{items.map((item, index) => (
+							{items.map((item) => (
 								<div key={item.id} className="flex gap-2 items-start">
 									<div className="flex-1">
 										<label className="text-xs font-medium text-slate-600 mb-1 block">
