@@ -3,6 +3,7 @@ import { createContext, useContext, useState, type PropsWithChildren } from 'rea
 export interface BuyerItem {
 	itemName: string;
 	itemPrice: number;
+	quantity: number;
 }
 
 export interface LocalBuyerData {

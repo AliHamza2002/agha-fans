@@ -1,43 +1,47 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
-import type { Material } from '../store/store';
-import type { LocalBuyerData } from '../contexts/LocalBuyerContext';
+import { useStore } from '../store/store';
 import { toast } from './Toast';
 
-interface AddBuyerModalProps {
+interface AddPurchaseModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onSave: (buyerData: LocalBuyerData) => void;
-	finishedMaterials: Material[];
 }
 
 interface ItemRow {
 	id: number;
-	itemName: string;
-	itemPrice: number;
+	materialId: string;
 	quantity: number;
+	unitPrice: number;
 }
 
-export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: AddBuyerModalProps) {
-	const [buyerName, setBuyerName] = useState('');
-	const [contact, setContact] = useState('');
-	const [address, setAddress] = useState('');
-	const [items, setItems] = useState<ItemRow[]>([{ id: 1, itemName: '', itemPrice: 0, quantity: 1 }]);
+export function AddPurchaseModal({ isOpen, onClose }: AddPurchaseModalProps) {
+	const { parties, materials, addTransaction } = useStore();
+	const [supplierId, setSupplierId] = useState('');
+	const [items, setItems] = useState<ItemRow[]>([{ id: 1, materialId: '', quantity: 1, unitPrice: 0 }]);
 	const [nextId, setNextId] = useState(2);
+	const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
+	const [notes, setNotes] = useState('');
+
+	// Filter suppliers
+	const suppliers = useMemo(() => parties.filter(p => p.type === 'Supplier'), [parties]);
+	
+	// Filter raw materials
+	const rawMaterials = useMemo(() => materials.filter(m => m.category === 'Raw' || m.category === 'Semi-Finished'), [materials]);
 
 	// Reset form when modal opens
 	useEffect(() => {
 		if (isOpen) {
-			setBuyerName('');
-			setContact('');
-			setAddress('');
-			setItems([{ id: 1, itemName: finishedMaterials[0]?.name || '', itemPrice: 0, quantity: 1 }]);
+			setSupplierId('');
+			setItems([{ id: 1, materialId: '', quantity: 1, unitPrice: 0 }]);
 			setNextId(2);
+			setBillDate(new Date().toISOString().split('T')[0]);
+			setNotes('');
 		}
-	}, [isOpen, finishedMaterials]);
+	}, [isOpen]);
 
 	const addItemRow = () => {
-		setItems([...items, { id: nextId, itemName: '', itemPrice: 0, quantity: 1 }]);
+		setItems([...items, { id: nextId, materialId: '', quantity: 1, unitPrice: 0 }]);
 		setNextId(nextId + 1);
 	};
 
@@ -47,55 +51,73 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 		}
 	};
 
-	const updateItem = (id: number, field: 'itemName' | 'itemPrice' | 'quantity', value: string | number) => {
-		setItems(items.map(item => 
-			item.id === id ? { ...item, [field]: value } : item
-		));
+	const updateItem = (id: number, field: keyof ItemRow, value: string | number) => {
+		setItems(items.map(item => {
+			if (item.id === id) {
+				if (field === 'materialId') {
+					// When material changes, update unit price to current material price
+					const material = materials.find(m => m.id === value);
+					return { ...item, [field]: String(value), unitPrice: material?.unitPrice || 0 };
+				}
+				return { ...item, [field]: value };
+			}
+			return item;
+		}));
 	};
 
 	const calculateTotal = () => {
-		return items.reduce((sum, item) => sum + ((item.itemPrice || 0) * (item.quantity || 0)), 0);
+		return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 	};
 
 	const handleSubmit = () => {
 		// Validation
-		if (!buyerName.trim()) {
-			toast.error('Buyer name is required');
+		if (!supplierId) {
+			toast.error('Please select a supplier');
 			return;
 		}
 
 		// Validate items
-		const validItems = items.filter(item => item.itemName.trim() && item.itemPrice > 0 && item.quantity > 0);
+		const validItems = items.filter(item => item.materialId && item.quantity > 0 && item.unitPrice > 0);
 		if (validItems.length === 0) {
-			toast.error('Please add at least one item with name and price');
+			toast.error('Please add at least one valid item');
 			return;
 		}
 
 		// Check for incomplete items
 		const hasIncompleteItems = items.some(item => 
-			(item.itemName.trim() && item.itemPrice <= 0) || 
-			(!item.itemName.trim() && item.itemPrice > 0)
+			(item.materialId && (item.quantity <= 0 || item.unitPrice <= 0)) || 
+			(!item.materialId && (item.quantity > 0 || item.unitPrice > 0))
 		);
 		if (hasIncompleteItems) {
 			toast.error('Please complete all item entries or remove empty rows');
 			return;
 		}
 
-		const buyerData: LocalBuyerData = {
-			buyerName: buyerName.trim(),
-			contact: contact.trim() || undefined,
-			address: address.trim() || undefined,
-			items: validItems.map(item => ({
-				itemName: item.itemName.trim(),
-				itemPrice: item.itemPrice,
-				quantity: item.quantity,
-			})),
-			totalAmount: calculateTotal(),
-			date: new Date().toISOString(),
-		};
+		try {
+			const supplier = parties.find(p => p.id === supplierId);
+			
+			// Add a transaction for each item
+			validItems.forEach(item => {
+				const material = materials.find(m => m.id === item.materialId);
+				if (material) {
+						addTransaction({
+						date: new Date(billDate).toISOString(),
+						materialId: item.materialId,
+						type: 'Purchase',
+						quantity: item.quantity,
+						unitPrice: item.unitPrice,
+						partyId: supplierId,
+						partyName: supplier?.name,
+						notes: notes || undefined,
+					});
+				}
+			});
 
-		onSave(buyerData);
-		toast.success('Buyer added successfully');
+			toast.success('Purchase recorded successfully');
+			onClose();
+		} catch (error) {
+			toast.error('Failed to save purchase');
+		}
 	};
 
 	if (!isOpen) return null;
@@ -106,7 +128,7 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 			<div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
 			{/* Modal */}
-			<div className="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 p-6 animate-scale-in">
+			<div className="relative bg-white rounded-2xl shadow-xl max-w-3xl w-full mx-4 p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
 				{/* Close button */}
 				<button
 					onClick={onClose}
@@ -117,46 +139,50 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 
 				{/* Header */}
 				<div className="mb-6">
-					<h3 className="text-xl font-bold text-slate-900">Add New Local Buyer</h3>
-					<p className="text-sm text-slate-600 mt-1">Enter buyer details and select finished material</p>
+					<h3 className="text-xl font-bold text-slate-900">Record New Purchase</h3>
+					<p className="text-sm text-slate-600 mt-1">Enter purchase details from supplier</p>
 				</div>
 
 				{/* Form */}
 				<div className="space-y-4">
-					{/* Buyer Information */}
+					{/* Purchase Information */}
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<div className="md:col-span-2">
+						<div>
 							<label className="text-xs font-medium text-slate-700 mb-1 block">
-								Buyer Name <span className="text-red-500">*</span>
+								Supplier <span className="text-red-500">*</span>
+							</label>
+							<select
+								className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+								value={supplierId}
+								onChange={e => setSupplierId(e.target.value)}
+							>
+								<option value="">Select Supplier...</option>
+								{suppliers.map(s => (
+									<option key={s.id} value={s.id}>{s.name}</option>
+								))}
+							</select>
+						</div>
+
+						<div>
+							<label className="text-xs font-medium text-slate-700 mb-1 block">
+								Date <span className="text-red-500">*</span>
 							</label>
 							<input
-								type="text"
+								type="date"
 								className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-								value={buyerName}
-								onChange={e => setBuyerName(e.target.value)}
-								placeholder="Enter buyer name"
+								value={billDate}
+								onChange={e => setBillDate(e.target.value)}
 							/>
 						</div>
 
-						<div>
-							<label className="text-xs font-medium text-slate-700 mb-1 block">Contact</label>
+						<div className="md:col-span-2">
+							<label className="text-xs font-medium text-slate-700 mb-1 block">Notes</label>
 							<input
 								type="text"
 								className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-								value={contact}
-								onChange={e => setContact(e.target.value)}
-								placeholder="Phone or email"
-							/>
-						</div>
-
-						<div>
-							<label className="text-xs font-medium text-slate-700 mb-1 block">Address</label>
-							<input
-								type="text"
-								className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-								value={address}
-								onChange={e => setAddress(e.target.value)}
-								placeholder="Buyer address"
+								value={notes}
+								onChange={e => setNotes(e.target.value)}
+								placeholder="Optional notes (e.g. Bill Number, Remarks)"
 							/>
 						</div>
 					</div>
@@ -181,17 +207,17 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 								<div key={item.id} className="flex gap-2 items-start">
 									<div className="flex-1">
 										<label className="text-xs font-medium text-slate-600 mb-1 block">
-											Item Name
+											Material
 										</label>
 										<select
 											className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-											value={item.itemName}
-											onChange={e => updateItem(item.id, 'itemName', e.target.value)}
+											value={item.materialId}
+											onChange={e => updateItem(item.id, 'materialId', e.target.value)}
 										>
-											<option value="">Select item...</option>
-											{finishedMaterials.map(material => (
-												<option key={material.id} value={material.name}>
-													{material.name}
+											<option value="">Select material...</option>
+											{rawMaterials.map(m => (
+												<option key={m.id} value={m.id}>
+													{m.name} ({m.unit})
 												</option>
 											))}
 										</select>
@@ -211,19 +237,23 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 										/>
 									</div>
 
-									<div className="flex-1">
+									<div className="w-32">
 										<label className="text-xs font-medium text-slate-600 mb-1 block">
-											Item Price (Rs.)
+											Unit Price
 										</label>
 										<input
 											type="number"
 											min="0"
 											step="0.01"
 											className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-											value={item.itemPrice || ''}
-											onChange={e => updateItem(item.id, 'itemPrice', Number(e.target.value))}
+											value={item.unitPrice || ''}
+											onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
 											placeholder="0.00"
 										/>
+									</div>
+
+									<div className="w-32 pt-7 text-right font-medium text-slate-700">
+										Rs. {(item.quantity * item.unitPrice).toLocaleString()}
 									</div>
 
 									{items.length > 1 && (
@@ -264,15 +294,12 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 					<button
 						type="button"
 						onClick={handleSubmit}
-						disabled={finishedMaterials.length === 0}
-						className="px-6 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						className="px-6 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand-hover transition-colors"
 					>
-						Save & Generate Receipt
+						Save Purchase
 					</button>
 				</div>
 			</div>
 		</div>
 	);
 }
-
-

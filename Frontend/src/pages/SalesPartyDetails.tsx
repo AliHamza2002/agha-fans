@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useStore, type TransactionType } from '../store/store';
+import { useStore, type TransactionType, type Transaction } from '../store/store';
 import { ArrowLeft, FileText, Pencil, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '../components/Toast';
 import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog';
+import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 
 export default function SalesPartyDetails() {
 	const { partyId } = useParams<{ partyId: string }>();
@@ -24,6 +25,8 @@ export default function SalesPartyDetails() {
 		open: false, 
 		transactionId: '' 
 	});
+	const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+	const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
 	const party = parties.find(p => p.id === partyId);
 	const partyTransactions = useMemo(() => {
@@ -65,27 +68,23 @@ export default function SalesPartyDetails() {
 		);
 	}
 
-	const totalAmount = partyTransactions.reduce((sum, t) => sum + (t.quantity * t.unitPrice), 0);
+	const totalDebit = partyTransactions.reduce((sum, t) => sum + t.debit, 0);
+	const totalCredit = partyTransactions.reduce((sum, t) => sum + t.credit, 0);
+	const closingBalance = partyTransactions.length > 0 ? partyTransactions[partyTransactions.length - 1].total : 0;
 
-	const handleEdit = (transaction: {
-		id: string;
-		date: string;
-		materialId: string;
-		type: TransactionType;
-		quantity: number;
-		unitPrice: number;
-		notes?: string;
-	}) => {
+
+	const handleEdit = (transaction: Transaction) => {
 		setEditingTransaction(transaction.id);
 		setEditForm({
 			date: transaction.date,
-			materialId: transaction.materialId,
+			materialId: transaction.materialId || '',
 			type: transaction.type,
 			quantity: transaction.quantity,
 			unitPrice: transaction.unitPrice,
 			notes: transaction.notes || '',
 		});
 	};
+
 
 	const handleSaveEdit = () => {
 		if (!editForm) return;
@@ -132,6 +131,11 @@ export default function SalesPartyDetails() {
 		toast.success('Print dialog opened');
 	};
 
+	const handleViewDetails = (transaction: Transaction) => {
+		setSelectedTransaction(transaction);
+		setDetailsModalOpen(true);
+	};
+
 	return (
 		<div className="space-y-6">
 			{/* Header */}
@@ -173,8 +177,10 @@ export default function SalesPartyDetails() {
 						<p className="text-base font-semibold text-slate-900">{partyTransactions.length}</p>
 					</div>
 					<div>
-						<p className="text-xs font-medium text-slate-600 mb-1">Total Amount</p>
-						<p className="text-base font-bold text-indigo-600">Rs. {totalAmount.toLocaleString()}</p>
+						<p className="text-xs font-medium text-slate-600 mb-1">Current Balance</p>
+						<p className={`text-base font-bold ${closingBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+							{Math.abs(closingBalance).toLocaleString()} {closingBalance >= 0 ? 'Dr' : 'Cr'}
+						</p>
 					</div>
 				</div>
 			</div>
@@ -190,110 +196,92 @@ export default function SalesPartyDetails() {
 					<div className="overflow-auto">
 						<table className="min-w-full text-sm">
 							<thead>
-								<tr className="text-left text-slate-600 border-b border-slate-200">
+								<tr className="text-center text-slate-600 border-b border-slate-200">
 									<th className="p-3 font-semibold">Date</th>
-									<th className="p-3 font-semibold">Bill No</th>
-									<th className="p-3 font-semibold">Total Amount</th>
-									<th className="p-3 font-semibold">Credit</th>
+									<th className="p-3 font-semibold">Invoice No.</th>
+									<th className="p-3 font-semibold text-left">Description</th>
+									<th className="p-3 font-semibold">Quantity</th>
+									<th className="p-3 font-semibold">Rate</th>
 									<th className="p-3 font-semibold">Debit</th>
-									<th className="p-3 font-semibold">Total (Running Balance)</th>
-									<th className="p-3 font-semibold text-center">Actions</th>
+									<th className="p-3 font-semibold">Credit</th>
+									<th className="p-3 font-semibold">Balance</th>
+									<th className="p-3 font-semibold">Actions</th>
 								</tr>
 							</thead>
 							<tbody>
-								{partyTransactions.map(transaction => (
-									<tr key={transaction.id} className="border-b border-slate-100 hover:bg-indigo-50/50 transition">
-										{editingTransaction === transaction.id && editForm ? (
-											<>
-												<td className="p-3">
-													<input
-														type="date"
-														className="w-full px-2 py-1 border border-slate-300 rounded text-xs"
-														value={editForm.date}
-														onChange={e => setEditForm({ ...editForm, date: e.target.value })}
-													/>
-												</td>
-												<td className="p-3 text-slate-600 text-xs">{transaction.billNo}</td>
-												<td className="p-3">
-													<div className="space-y-1">
-														<input
-															type="number"
-															className="w-20 px-2 py-1 border border-slate-300 rounded text-xs"
-															placeholder="Qty"
-															value={editForm.quantity}
-															onChange={e => setEditForm({ ...editForm, quantity: Number(e.target.value) })}
-														/>
-														<input
-															type="number"
-															className="w-20 px-2 py-1 border border-slate-300 rounded text-xs"
-															placeholder="Price"
-															value={editForm.unitPrice}
-															onChange={e => setEditForm({ ...editForm, unitPrice: Number(e.target.value) })}
-														/>
-														<div className="text-xs text-slate-500">Total: {(editForm.quantity * editForm.unitPrice).toLocaleString()}</div>
-													</div>
-												</td>
-												<td className="p-3 text-slate-600">
-													{editForm.type === 'Sale' ? (editForm.quantity * editForm.unitPrice).toLocaleString() : '0'}
-												</td>
-												<td className="p-3 text-slate-600">
-													{editForm.type === 'Purchase' ? (editForm.quantity * editForm.unitPrice).toLocaleString() : '0'}
-												</td>
-												<td className="p-3 font-semibold text-slate-900">-</td>
-												<td className="p-3">
-													<div className="flex gap-1 justify-center">
-														<button
-															onClick={handleSaveEdit}
-															className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-														>
-															Save
-														</button>
-														<button
-															onClick={handleCancelEdit}
-															className="px-2 py-1 bg-slate-200 text-slate-700 text-xs rounded hover:bg-slate-300"
-														>
-															<X className="h-3 w-3" />
-														</button>
-													</div>
-												</td>
-											</>
-										) : (
-											<>
-												<td className="p-3 text-slate-600">{format(new Date(transaction.date), 'dd MMM yyyy')}</td>
-												<td className="p-3 text-slate-600 text-xs font-mono">{transaction.billNo || 'N/A'}</td>
-												<td className="p-3 font-semibold text-slate-900">
-													Rs. {((transaction.quantity || 0) * (transaction.unitPrice || 0)).toLocaleString()}
-												</td>
-												<td className="p-3 text-emerald-600 font-medium">
-													{(transaction.credit || 0) > 0 ? `Rs. ${(transaction.credit || 0).toLocaleString()}` : '-'}
-												</td>
-												<td className="p-3 text-blue-600 font-medium">
-													{(transaction.debit || 0) > 0 ? `Rs. ${(transaction.debit || 0).toLocaleString()}` : '-'}
-												</td>
-												<td className="p-3 font-bold text-slate-900">
-													Rs. {(transaction.total || 0).toLocaleString()}
-												</td>
-												<td className="p-3">
-													<div className="flex gap-2 justify-center">
-														<button
-															onClick={() => handleEdit(transaction)}
-															className="px-2 py-1.5 rounded-lg border border-slate-300 hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 transition"
-														>
-															<Pencil className="h-3 w-3" />
-														</button>
-														<button
-															onClick={() => setDeleteDialog({ open: true, transactionId: transaction.id })}
-															className="px-2 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition"
-														>
-															<Trash2 className="h-3 w-3" />
-														</button>
-													</div>
-												</td>
-											</>
-										)}
+								{partyTransactions.map(t => (
+									<tr key={t.id} className="border-b border-slate-100 hover:bg-indigo-50/50 transition">
+										<td className="p-3 text-slate-600 text-center">{new Date(t.date).toLocaleDateString()}</td>
+										<td className="p-3 font-medium text-slate-900 text-center">
+											{t.type === 'Receipt' ? (
+												<span className="text-slate-400">-</span>
+											) : (
+												<button 
+													onClick={() => handleViewDetails(t)}
+													className="text-indigo-600 hover:text-indigo-800 hover:underline font-mono"
+												>
+													{t.billNo}
+												</button>
+											)}
+										</td>
+										<td className="p-3 text-slate-900 text-left">
+											{t.type === 'Receipt' ? (
+												<span className="font-medium text-emerald-700">{t.notes || 'Payment Received'}</span>
+											) : (
+												<span>
+													<span className="font-medium">{t.materialName}</span>
+													{t.category && <span className="text-xs text-slate-500 ml-2">({t.category})</span>}
+													{t.notes && <div className="text-xs text-slate-500 mt-0.5">{t.notes}</div>}
+												</span>
+											)}
+										</td>
+										<td className="p-3 text-slate-600 text-center">
+											{t.type === 'Receipt' ? '-' : t.quantity}
+										</td>
+										<td className="p-3 text-slate-600 text-center">
+											{t.type === 'Receipt' ? '-' : t.unitPrice.toLocaleString()}
+										</td>
+										<td className="p-3 font-medium text-slate-900 text-center">
+											{t.debit > 0 ? t.debit.toLocaleString() : ''}
+										</td>
+										<td className="p-3 font-medium text-slate-900 text-center">
+											{t.credit > 0 ? t.credit.toLocaleString() : ''}
+										</td>
+										<td className="p-3 font-bold text-slate-900 text-center">
+											{Math.abs(t.total).toLocaleString()} {t.total >= 0 ? 'Dr' : 'Cr'}
+										</td>
+										<td className="p-3 text-center">
+											<div className="flex gap-2 justify-center">
+												<button
+													onClick={() => handleEdit(t)}
+													className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+													title="Edit"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+												<button
+													onClick={() => setDeleteDialog({ open: true, transactionId: t.id })}
+													className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
+													title="Delete"
+												>
+													<Trash2 className="h-4 w-4" />
+												</button>
+											</div>
+										</td>
 									</tr>
 								))}
 							</tbody>
+							<tfoot>
+								<tr className="bg-slate-50 font-bold text-slate-900 border-t-2 border-slate-200">
+									<td colSpan={5} className="p-3 text-right">Total:</td>
+									<td className="p-3 text-center text-blue-700">{totalDebit.toLocaleString()}</td>
+									<td className="p-3 text-center text-emerald-700">{totalCredit.toLocaleString()}</td>
+									<td className="p-3 text-center">
+										{Math.abs(closingBalance).toLocaleString()} {closingBalance >= 0 ? 'Dr' : 'Cr'}
+									</td>
+									<td></td>
+								</tr>
+							</tfoot>
 						</table>
 					</div>
 				)}
@@ -305,6 +293,12 @@ export default function SalesPartyDetails() {
 				onConfirm={handleDelete}
 				title="Delete Transaction"
 				message="Are you sure you want to delete this transaction"
+			/>
+
+			<TransactionDetailsModal
+				isOpen={detailsModalOpen}
+				onClose={() => setDetailsModalOpen(false)}
+				transaction={selectedTransaction}
 			/>
 		</div>
 	);

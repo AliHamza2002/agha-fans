@@ -142,22 +142,22 @@ export default function Receipt() {
 							<table className="min-w-full">
 								<thead>
 									<tr className="bg-slate-50 border-b border-slate-200">
-										<th className="p-3 text-left text-xs font-semibold text-slate-700">Item Name</th>
+										<th className="p-3 text-center text-xs font-semibold text-slate-700">Item Name</th>
 										<th className="p-3 text-center text-xs font-semibold text-slate-700">Quantity</th>
-										<th className="p-3 text-right text-xs font-semibold text-slate-700">Price</th>
-										<th className="p-3 text-right text-xs font-semibold text-slate-700">Total</th>
+										<th className="p-3 text-center text-xs font-semibold text-slate-700">Price</th>
+										<th className="p-3 text-center text-xs font-semibold text-slate-700">Total</th>
 									</tr>
 								</thead>
 								<tbody>
 									{pendingBuyer.items.map((item, index) => (
 										<tr key={index} className="border-b border-slate-100">
-											<td className="p-3 text-slate-900 font-medium">{item.itemName}</td>
-											<td className="p-3 text-center text-slate-900">1</td>
-											<td className="p-3 text-right text-slate-900">
+											<td className="p-3 text-center text-slate-900 font-medium">{item.itemName}</td>
+											<td className="p-3 text-center text-slate-900">{item.quantity}</td>
+											<td className="p-3 text-center text-slate-900">
 												Rs. {item.itemPrice.toLocaleString()}
 											</td>
-											<td className="p-3 text-right font-semibold text-slate-900">
-												Rs. {item.itemPrice.toLocaleString()}
+											<td className="p-3 text-center font-semibold text-slate-900">
+												Rs. {(item.itemPrice * item.quantity).toLocaleString()}
 											</td>
 										</tr>
 									))}

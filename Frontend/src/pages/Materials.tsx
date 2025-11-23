@@ -193,13 +193,13 @@ export default function Materials() {
 					<tbody>
 						{filtered.map(m => (
 							<tr key={m.id} className="border-b border-slate-100 hover:bg-indigo-50/50 transition">
-								<td className="p-3 font-semibold text-slate-900">{m.name}</td>
-								<td className="p-3"><span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{m.category}</span></td>
-								<td className="p-3 text-slate-600">{m.unit}</td>
-								<td className="p-3 font-medium text-slate-900">{m.quantity.toLocaleString()}</td>
-								<td className="p-3 text-slate-600">Rs. {(m.unitPrice || 0).toLocaleString()}</td>
-								<td className="p-3 font-semibold text-slate-900">Rs. {((m.unitPrice || 0) * m.quantity).toLocaleString()}</td>
-								<td className="p-3 justify-center">
+								<td className="p-3 font-semibold text-slate-900 text-center">{m.name}</td>
+								<td className="p-3 text-center"><span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{m.category}</span></td>
+								<td className="p-3 text-slate-600 text-center">{m.unit}</td>
+								<td className="p-3 font-medium text-slate-900 text-center">{m.quantity.toLocaleString()}</td>
+								<td className="p-3 text-slate-600 text-center">Rs. {(m.unitPrice || 0).toLocaleString()}</td>
+								<td className="p-3 font-semibold text-slate-900 text-center">Rs. {((m.unitPrice || 0) * m.quantity).toLocaleString()}</td>
+								<td className="p-3 justify-center text-center">
 									<div className="flex gap-2 justify-center">
 										<button className="px-2 py-1.5 rounded-lg border border-slate-300 hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 transition" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></button>
 										<button className="px-2 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition" onClick={() => setDeleteDialog({ open: true, materialId: m.id, materialName: m.name })}><Trash2 className="h-4 w-4" /></button>

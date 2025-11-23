@@ -1,12 +1,25 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Eye, Search } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ShoppingCart, Eye, Search, Plus, CreditCard } from 'lucide-react';
 import { useStore } from '../store/store';
+import { AddPurchaseModal } from '../components/AddPurchaseModal';
+import { AddPaymentModal } from '../components/AddPaymentModal';
 
 export default function Purchase() {
 	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const { parties, transactions } = useStore();
 	const [searchQuery, setSearchQuery] = useState('');
+	const [modalOpen, setModalOpen] = useState(false);
+	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+	useEffect(() => {
+		if (searchParams.get('new') === 'purchase') {
+			setModalOpen(true);
+			// Clear the query param
+			setSearchParams({}, { replace: true });
+		}
+	}, [searchParams, setSearchParams]);
 
 	// Filter parties to show only Suppliers
 	const supplierParties = useMemo(() => {
@@ -53,6 +66,20 @@ export default function Purchase() {
 						className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
 					/>
 				</div>
+				<div className="flex gap-2">
+					<button
+						onClick={() => setPaymentModalOpen(true)}
+						className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow-md font-medium"
+					>
+						<CreditCard className="h-4 w-4" /> Add Payment
+					</button>
+					<button
+						onClick={() => setModalOpen(true)}
+						className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl hover:bg-brand-hover transition shadow-md font-medium"
+					>
+						<Plus className="h-4 w-4" /> Add Purchase
+					</button>
+				</div>
 			</div>
 
 			<div className="bg-white rounded-2xl p-5 shadow-soft border border-slate-200 overflow-auto">
@@ -65,7 +92,7 @@ export default function Purchase() {
 				) : (
 					<table className="min-w-full text-sm">
 						<thead>
-							<tr className="text-left text-slate-600 border-b border-slate-200">
+							<tr className="text-center text-slate-600 border-b border-slate-200">
 								<th className="p-3 font-semibold">Supplier Name</th>
 								<th className="p-3 font-semibold">Type</th>
 								<th className="p-3 font-semibold">Contact</th>
@@ -77,15 +104,15 @@ export default function Purchase() {
 						<tbody>
 							{supplierParties.map(party => (
 								<tr key={party.id} className="border-b border-slate-100 hover:bg-indigo-50/50 transition">
-									<td className="p-3 font-semibold text-slate-900">{party.name}</td>
-									<td className="p-3">
+									<td className="p-3 font-semibold text-slate-900 text-center">{party.name}</td>
+									<td className="p-3 text-center">
 										<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
 											{party.type}
 										</span>
 									</td>
-									<td className="p-3 text-slate-600">{party.contact || '-'}</td>
-									<td className="p-3 font-medium text-slate-900">{getPartyTransactionCount(party.id)}</td>
-									<td className="p-3 font-semibold text-slate-900">
+									<td className="p-3 text-slate-600 text-center">{party.contact || '-'}</td>
+									<td className="p-3 font-medium text-slate-900 text-center">{getPartyTransactionCount(party.id)}</td>
+									<td className="p-3 font-semibold text-slate-900 text-center">
 										Rs. {getPartyTotalAmount(party.id).toLocaleString()}
 									</td>
 									<td className="p-3 text-center">
@@ -102,6 +129,9 @@ export default function Purchase() {
 					</table>
 				)}
 			</div>
+
+			<AddPurchaseModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+			<AddPaymentModal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} />
 		</div>
 	);
 }

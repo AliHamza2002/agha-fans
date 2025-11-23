@@ -95,7 +95,7 @@ export function Layout({ children }: PropsWithChildren) {
 								{open && <span>Purchase</span>}
 							</NavLink>
 						)}
-						{canAccess(['Admin', 'StoreBoy']) && (
+						{canAccess(['Admin']) && (
 							<NavLink to="/local-buyer" className={({ isActive }) => cx('flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all', isActive ? 'bg-brand text-white shadow-glow font-medium' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-600')}>
 								<ShoppingCart className="h-5 w-5" />
 								{open && <span>Local Buyer</span>}

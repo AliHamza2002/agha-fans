@@ -66,7 +66,7 @@ export default function Parties() {
 		const itemsWithData = items.filter(item => item.itemName.trim() || item.itemPrice > 0);
 		if (itemsWithData.length > 0) {
 			const hasIncompleteItems = itemsWithData.some(item => 
-				!item.itemName.trim() || item.itemPrice <= 0
+				!item.itemName.trim() || (isAdmin && item.itemPrice <= 0)
 			);
 			if (hasIncompleteItems) {
 				toast.error('Please complete all item entries or remove empty rows');
@@ -130,7 +130,7 @@ export default function Parties() {
 			<div className="bg-whitebg-slate-800 rounded-2xl p-5 shadow-soft border border-slate-200border-slate-700 overflow-auto">
 				<table className="min-w-full text-sm">
 					<thead>
-						<tr className="text-left text-slate-600text-slate-400 border-b border-slate-200border-slate-700">
+						<tr className="text-center text-slate-600text-slate-400 border-b border-slate-200border-slate-700">
 							<th className="p-3 font-semibold">Name</th>
 							<th className="p-3 font-semibold">Type</th>
 							<th className="p-3 font-semibold">Contact</th>
@@ -143,16 +143,16 @@ export default function Parties() {
 							const count = transactions.filter(t => t.partyId === p.id).length;
 							return (
 								<tr key={p.id} className="border-b border-slate-100border-slate-700 hover:bg-indigo-50/50hover:bg-indigo-900/20 transition">
-									<td className="p-3 font-semibold text-slate-900text-slate-100">{p.name}</td>
-									<td className="p-3">
+									<td className="p-3 font-semibold text-slate-900text-slate-100 text-center">{p.name}</td>
+									<td className="p-3 text-center">
 										<span className={`px-2 py-1 rounded-full text-xs font-medium ${p.type === 'Supplier' ? 'bg-blue-100bg-blue-900/50 text-blue-700text-blue-300' : 'bg-emerald-100bg-emerald-900/50 text-emerald-700text-emerald-300'}`}>
 											{p.type}
 										</span>
 									</td>
-									<td className="p-3 text-slate-600text-slate-400">{p.contact ?? '-'}</td>
-									<td className="p-3 font-medium text-slate-900text-slate-100">{count}</td>
-									<td className="p-3">
-										<div className="flex gap-2">
+									<td className="p-3 text-slate-600text-slate-400 text-center">{p.contact ?? '-'}</td>
+									<td className="p-3 font-medium text-slate-900text-slate-100 text-center">{count}</td>
+									<td className="p-3 text-center">
+										<div className="flex gap-2 justify-center">
 											<button className="px-2 py-1.5 rounded-lg border border-slate-300border-slate-600 hover:bg-indigo-50hover:bg-indigo-900/30 hover:border-indigo-300hover:border-indigo-600 text-indigo-600text-indigo-400 transition" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></button>
 											<button className="px-2 py-1.5 rounded-lg border border-red-200border-red-800 hover:bg-red-50hover:bg-red-900/30 text-red-600text-red-400 transition" onClick={() => setDeleteDialog({ open: true, partyId: p.id, partyName: p.name })}><Trash2 className="h-4 w-4" /></button>
 										</div>

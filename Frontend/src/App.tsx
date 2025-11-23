@@ -107,7 +107,7 @@ export default function App() {
                   <Route
                     path="/local-buyer"
                     element={
-                      <ProtectedRoute allowedRoles={["Admin", "StoreBoy"]}>
+                      <ProtectedRoute allowedRoles={["Admin"]}>
                         <LocalBuyer />
                       </ProtectedRoute>
                     }

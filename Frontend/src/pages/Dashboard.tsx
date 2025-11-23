@@ -29,13 +29,13 @@ export default function Dashboard() {
 			<div className="flex items-center justify-between">
 				<h1 className="text-2xl md:text-3xl font-bold text-slate-900text-slate-100">Dashboard</h1>
 				<div className="flex gap-2 flex-wrap">
-					<Link to="/ledger?new=purchase" className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl hover:bg-brand-hover transition shadow-md font-medium">
+					<Link to="/purchase?new=purchase" className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl hover:bg-brand-hover transition shadow-md font-medium">
 						<PlusCircle className="h-4 w-4" /> Add Purchase
 					</Link>
-					<Link to="/ledger?new=sale" className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition shadow-md font-medium">
+					<Link to="/sales?new=sale" className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition shadow-md font-medium">
 						<Receipt className="h-4 w-4" /> Add Sale
 					</Link>
-					<Link to="/ledger" className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-300border-slate-600 rounded-xl hover:bg-slate-50hover:bg-slate-800 transition font-medium text-slate-700text-slate-300">View Ledger</Link>
+					<Link to="/sales" className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-300border-slate-600 rounded-xl hover:bg-slate-50hover:bg-slate-800 transition font-medium text-slate-700text-slate-300">View Ledger</Link>
 				</div>
 			</div>
 

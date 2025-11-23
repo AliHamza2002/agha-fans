@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export type UnitType = 'kg' | 'pcs';
 export type MaterialCategory = 'Raw' | 'Semi-Finished' | 'Final';
-export type TransactionType = 'Purchase' | 'Sale';
+export type TransactionType = 'Purchase' | 'Sale' | 'Payment' | 'Receipt';
 export type PartyType = 'Buyer' | 'Supplier';
 
 export interface Material {
@@ -27,9 +27,9 @@ export interface Transaction {
 	id: string;
 	date: string; // ISO
 	billNo: string; // Auto-generated unique bill number
-	materialId: string;
-	materialName: string;
-	category: MaterialCategory;
+	materialId?: string;
+	materialName?: string;
+	category?: MaterialCategory;
 	type: TransactionType;
 	quantity: number;
 	unitPrice: number;
@@ -57,7 +57,7 @@ export interface StoreState {
 	removeParty: (id: string) => void;
 
 	// transactions
-	addTransaction: (t: Omit<Transaction, 'id' | 'materialName' | 'category'>) => void;
+	addTransaction: (t: Omit<Transaction, 'id' | 'materialName' | 'category' | 'billNo' | 'debit' | 'credit' | 'total'>) => void;
 	updateTransaction: (id: string, t: Partial<Omit<Transaction, 'id'>>) => void;
 	removeTransaction: (id: string) => void;
 
@@ -175,8 +175,8 @@ function generateDummyData(): Pick<StoreState, 'materials' | 'parties' | 'transa
 	let billCounter = 1;
 	const transactions: Transaction[] = rawTransactions.map(t => {
 		const totalAmount = t.quantity * t.unitPrice;
-		const debit = t.type === 'Purchase' ? totalAmount : 0;
-		const credit = t.type === 'Sale' ? totalAmount : 0;
+		const debit = t.type === 'Purchase' || t.type === 'Sale' ? totalAmount : 0;
+		const credit = 0;
 		return {
 			...t,
 			billNo: `BILL-${Date.now()}-${billCounter++}`,
@@ -208,10 +208,12 @@ function generateDummyData(): Pick<StoreState, 'materials' | 'parties' | 'transa
 
 	// Update material quantities based on transactions
 	transactions.forEach(t => {
-		const material = materialMap.get(t.materialId);
-		if (material) {
-			const delta = t.type === 'Purchase' ? t.quantity : -t.quantity;
-			material.quantity = Math.max(0, material.quantity + delta);
+		if (t.materialId) {
+			const material = materialMap.get(t.materialId);
+			if (material) {
+				const delta = t.type === 'Purchase' ? t.quantity : -t.quantity;
+				material.quantity = Math.max(0, material.quantity + delta);
+			}
 		}
 	});
 
@@ -228,8 +230,8 @@ function migrateTransactions(transactions: any[]): Transaction[] {
 		
 		// Calculate ledger fields for old transactions
 		const totalAmount = (t.quantity || 0) * (t.unitPrice || 0);
-		const debit = t.type === 'Purchase' ? totalAmount : 0;
-		const credit = t.type === 'Sale' ? totalAmount : 0;
+		const debit = t.type === 'Purchase' || t.type === 'Sale' ? totalAmount : 0;
+		const credit = 0;
 		
 		return {
 			...t,
@@ -330,28 +332,46 @@ export const useStore = create<StoreState>((set, get) => ({
 	}),
 
 	addTransaction: (t) => set((s) => {
-		const material = s.materials.find(m => m.id === t.materialId);
-		if (!material) return s;
+		let materialName = undefined;
+		let category = undefined;
+		let updatedMaterials = s.materials;
+
+		if (t.type !== 'Payment' && t.type !== 'Receipt' && t.materialId) {
+			const material = s.materials.find(m => m.id === t.materialId);
+			if (!material) return s;
+			materialName = material.name;
+			category = material.category;
+
+			// update stock
+			const delta = t.type === 'Purchase' ? t.quantity : -t.quantity;
+			updatedMaterials = s.materials.map(m => m.id === material.id ? { ...m, quantity: Math.max(0, m.quantity + delta) } : m);
+		}
 		
 		const totalAmount = t.quantity * t.unitPrice;
-		// Ledger logic: Purchase = Debit (increases balance), Sale = Credit (decreases balance)
-		const debit = t.type === 'Purchase' ? totalAmount : 0;
-		const credit = t.type === 'Sale' ? totalAmount : 0;
+		
+		let debit = 0;
+		let credit = 0;
+
+		if (t.type === 'Purchase') {
+			debit = totalAmount;
+		} else if (t.type === 'Sale') {
+			debit = totalAmount; 
+		} else if (t.type === 'Payment') {
+			credit = totalAmount;
+		} else if (t.type === 'Receipt') {
+			credit = totalAmount;
+		}
 		
 		const tx: Transaction = {
 			...t,
 			id: crypto.randomUUID(),
 			billNo: generateBillNo(),
-			materialName: material.name,
-			category: material.category,
+			materialName,
+			category,
 			debit,
 			credit,
 			total: 0, // Will be calculated below
 		};
-		
-		// update stock
-		const delta = tx.type === 'Purchase' ? tx.quantity : -tx.quantity;
-		const updatedMaterials = s.materials.map(m => m.id === material.id ? { ...m, quantity: Math.max(0, m.quantity + delta) } : m);
 		
 		// Recalculate running balances for all transactions of this party (sorted by date ascending)
 		const allPartyTransactions = [...s.transactions.filter(tr => tr.partyId === t.partyId), tx]

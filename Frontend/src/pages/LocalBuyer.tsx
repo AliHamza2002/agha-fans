@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, ArrowRight } from 'lucide-react';
 import { useStore } from '../store/store';
 import { AddBuyerModal } from '../components/AddBuyerModal';
 import { useLocalBuyer } from '../contexts/LocalBuyerContext';
@@ -18,6 +18,11 @@ export default function LocalBuyer() {
 		setPendingBuyer(buyerData);
 		setModalOpen(false);
 		// Navigate to receipt page
+		navigate('/receipt');
+	};
+
+	const handleViewReceipt = (buyer: any) => {
+		setPendingBuyer(buyer);
 		navigate('/receipt');
 	};
 
@@ -47,12 +52,12 @@ export default function LocalBuyer() {
 					<div className="overflow-auto">
 						<table className="min-w-full text-sm">
 							<thead>
-								<tr className="text-left text-slate-600 border-b border-slate-200">
+								<tr className="text-center text-slate-600 border-b border-slate-200">
 									<th className="p-3 font-semibold">Date</th>
 									<th className="p-3 font-semibold">Buyer Name</th>
-									<th className="p-3 font-semibold">Contact</th>
 									<th className="p-3 font-semibold">Items</th>
 									<th className="p-3 font-semibold">Total Amount</th>
+									<th className="p-3 font-semibold"></th>
 								</tr>
 							</thead>
 							<tbody>
@@ -60,17 +65,25 @@ export default function LocalBuyer() {
 									<tr key={index} className="border-b border-slate-100 hover:bg-indigo-50/50 transition">
 										<td className="p-3 text-slate-600">{new Date(buyer.date).toLocaleDateString()}</td>
 										<td className="p-3 font-semibold text-slate-900">{buyer.buyerName}</td>
-										<td className="p-3 text-slate-600">{buyer.contact || '-'}</td>
 										<td className="p-3 text-slate-900">
 											<div className="text-sm">
 												{buyer.items.map((item, idx) => (
 													<div key={idx} className="mb-1">
-														{item.itemName} - Rs. {item.itemPrice.toLocaleString()}
+														{item.quantity}x {item.itemName}
 													</div>
 												))}
 											</div>
 										</td>
 										<td className="p-3 font-semibold text-slate-900">Rs. {buyer.totalAmount.toLocaleString()}</td>
+										<td className="p-3 text-center">
+											<button
+												onClick={() => handleViewReceipt(buyer)}
+												className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+												title="View Receipt"
+											>
+												<ArrowRight className="h-5 w-5" />
+											</button>
+										</td>
 									</tr>
 								))}
 							</tbody>
