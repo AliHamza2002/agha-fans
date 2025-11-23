@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useStore, type TransactionType, type Transaction } from '../store/store';
-import { ArrowLeft, FileText, Pencil, Trash2, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { useStore, type Transaction } from '../store/store';
+import { ArrowLeft, FileText, Trash2 } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
@@ -10,17 +9,9 @@ import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 export default function SalesPartyDetails() {
 	const { partyId } = useParams<{ partyId: string }>();
 	const navigate = useNavigate();
-	const { parties, transactions, updateTransaction, removeTransaction } = useStore();
+	const { parties, transactions, removeTransaction } = useStore();
 	
-	const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
-	const [editForm, setEditForm] = useState<{
-		date: string;
-		materialId: string;
-		type: TransactionType;
-		quantity: number;
-		unitPrice: number;
-		notes: string;
-	} | null>(null);
+
 	const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; transactionId: string }>({ 
 		open: false, 
 		transactionId: '' 
@@ -73,55 +64,17 @@ export default function SalesPartyDetails() {
 	const closingBalance = partyTransactions.length > 0 ? partyTransactions[partyTransactions.length - 1].total : 0;
 
 
-	const handleEdit = (transaction: Transaction) => {
-		setEditingTransaction(transaction.id);
-		setEditForm({
-			date: transaction.date,
-			materialId: transaction.materialId || '',
-			type: transaction.type,
-			quantity: transaction.quantity,
-			unitPrice: transaction.unitPrice,
-			notes: transaction.notes || '',
-		});
-	};
 
 
-	const handleSaveEdit = () => {
-		if (!editForm) return;
-		
-		if (!editForm.materialId) {
-			toast.error('Please select a material');
-			return;
-		}
-		if (editForm.quantity <= 0) {
-			toast.error('Quantity must be greater than 0');
-			return;
-		}
-		if (editForm.unitPrice <= 0) {
-			toast.error('Unit price must be greater than 0');
-			return;
-		}
 
-		try {
-			updateTransaction(editingTransaction!, editForm);
-			toast.success('Transaction updated successfully');
-			setEditingTransaction(null);
-			setEditForm(null);
-		} catch {
-			toast.error('Failed to update transaction');
-		}
-	};
 
-	const handleCancelEdit = () => {
-		setEditingTransaction(null);
-		setEditForm(null);
-	};
 
 	const handleDelete = () => {
 		try {
 			removeTransaction(deleteDialog.transactionId);
 			toast.success('Transaction deleted successfully');
-		} catch {
+		} catch (error) {
+			console.error('Failed to delete transaction:', error);
 			toast.error('Failed to delete transaction');
 		}
 	};
@@ -252,13 +205,7 @@ export default function SalesPartyDetails() {
 										</td>
 										<td className="p-3 text-center">
 											<div className="flex gap-2 justify-center">
-												<button
-													onClick={() => handleEdit(t)}
-													className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-													title="Edit"
-												>
-													<Pencil className="h-4 w-4" />
-												</button>
+
 												<button
 													onClick={() => setDeleteDialog({ open: true, transactionId: t.id })}
 													className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"

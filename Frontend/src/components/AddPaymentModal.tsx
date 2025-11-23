@@ -47,16 +47,11 @@ export function AddPaymentModal({ isOpen, onClose }: AddPaymentModalProps) {
 			addTransaction({
 				date: new Date(date).toISOString(),
 				type: 'Payment',
-				quantity: 1, // Dummy quantity
-				unitPrice: Number(amount), // Amount goes here
+				quantity: 1,
+				unitPrice: Number(amount),
 				partyId: supplierId,
 				partyName: supplier?.name,
 				notes: `${paymentMode} - ${notes}`,
-				// Required fields that will be ignored/overwritten by store logic for Payment
-				billNo: '',
-				debit: 0,
-				credit: 0,
-				total: 0
 			});
 
 			toast.success('Payment recorded successfully');
