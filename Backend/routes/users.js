@@ -1,9 +1,8 @@
-var express = require('express');
+import express from 'express';
+import { registerUser } from '../controllers/userController.js';
 var router = express.Router();
 
 /* GET users listing. */
-router.get('/', function(req, res, next) {
-  res.send('respond with a resource');
-});
+router.post('/register', registerUser);
 
-module.exports = router;
+export default router;
