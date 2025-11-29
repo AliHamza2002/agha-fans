@@ -15,6 +15,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // Routes
+app.use('/api', (req, res) => {
+  res.json({ message: 'Welcome to the API' });
+});
 app.use('/users', users);
 
 // catch 404 and forward to error handler
