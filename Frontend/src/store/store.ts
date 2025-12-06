@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { getMaterials, createMaterial, updateMaterial as apiUpdateMaterial, deleteMaterial as apiDeleteMaterial } from '../api/materials';
+import { getParties, createParty as apiCreateParty, updateParty as apiUpdateParty, deleteParty as apiDeleteParty } from '../api/parties';
+import { getTransactions, createTransaction as apiCreateTransaction, updateTransaction as apiUpdateTransaction, deleteTransaction as apiDeleteTransaction } from '../api/transactions';
 
 export type UnitType = 'kg' | 'pcs';
 export type MaterialCategory = 'Raw' | 'Semi-Finished' | 'Final';
@@ -14,6 +17,14 @@ export interface Material {
 	unitPrice?: number;
 	description?: string;
 	lowStockThreshold?: number;
+	_id?: string; // Backend ID
+}
+
+// *** FEATURE: Party Item interface ***
+export interface PartyItem {
+	_id?: string;
+	itemName: string;
+	itemPrice: number;
 }
 
 export interface Party {
@@ -21,6 +32,7 @@ export interface Party {
 	name: string;
 	type: PartyType;
 	contact?: string;
+	items?: PartyItem[]; // *** FEATURE: Items array ***
 }
 
 export interface Transaction {
@@ -46,20 +58,28 @@ export interface StoreState {
 	parties: Party[];
 	transactions: Transaction[];
 
+	// *** LOADING STATES: Track loading state for each resource ***
+	isLoadingMaterials: boolean;
+	isLoadingParties: boolean;
+	isLoadingTransactions: boolean;
+
 	// material ops
-	addMaterial: (m: Omit<Material, 'id'>) => void;
-	updateMaterial: (id: string, m: Partial<Omit<Material, 'id'>>) => void;
-	removeMaterial: (id: string) => void;
+	fetchMaterials: () => Promise<void>;
+	addMaterial: (m: Omit<Material, 'id'>) => Promise<void>;
+	updateMaterial: (id: string, m: Partial<Omit<Material, 'id'>>) => Promise<void>;
+	removeMaterial: (id: string) => Promise<void>;
 
 	// party ops
-	addParty: (p: Omit<Party, 'id'>) => void;
-	updateParty: (id: string, p: Partial<Omit<Party, 'id'>>) => void;
-	removeParty: (id: string) => void;
+	fetchParties: () => Promise<void>;
+	addParty: (p: Omit<Party, 'id'>) => Promise<void>;
+	updateParty: (id: string, p: Partial<Omit<Party, 'id'>>) => Promise<void>;
+	removeParty: (id: string) => Promise<void>;
 
 	// transactions
-	addTransaction: (t: Omit<Transaction, 'id' | 'materialName' | 'category' | 'billNo' | 'debit' | 'credit' | 'total'>) => void;
-	updateTransaction: (id: string, t: Partial<Omit<Transaction, 'id'>>) => void;
-	removeTransaction: (id: string) => void;
+	fetchTransactions: () => Promise<void>;
+	addTransaction: (t: Omit<Transaction, 'id' | 'materialName' | 'category' | 'billNo' | 'debit' | 'credit' | 'total'>) => Promise<void>;
+	updateTransaction: (id: string, t: Partial<Omit<Transaction, 'id'>>) => Promise<void>;
+	removeTransaction: (id: string) => Promise<void>;
 
 	// computed helpers
 	getMaterialById: (id: string) => Material | undefined;
@@ -67,30 +87,28 @@ export interface StoreState {
 	getTotals: () => { totalPurchases: number; totalSales: number; stockValue: number; profit: number };
 }
 
-const STORAGE_KEY = 'fence-ledger-state-v1';
+// Storage key for localStorage (currently unused as data comes from API)
+// const STORAGE_KEY = 'fence-ledger-state-v1';
 
-// Generate unique bill number (client-side, per session)
-let billNumberCounter = 1;
-function generateBillNo(): string {
-	const timestamp = Date.now();
-	const counter = billNumberCounter++;
-	return `BILL-${timestamp}-${counter}`;
-}
+// These functions are currently unused as data is managed by the backend API
+// Kept for potential future use
 
-function persist(state: StoreState) {
-	try {
-		localStorage.setItem(
-			STORAGE_KEY,
-			JSON.stringify({
-				materials: state.materials,
-				parties: state.parties,
-				transactions: state.transactions,
-			}),
-		);
-	} catch {}
-}
+// function persist(state: StoreState) {
+// 	try {
+// 		localStorage.setItem(
+// 			STORAGE_KEY,
+// 			JSON.stringify({
+// 				parties: state.parties,
+// 				transactions: state.transactions,
+// 			}),
+// 		);
+// 	} catch {}
+// }
 
-// Generate realistic dummy data for demonstration
+// *** REMOVED: No more dummy data generation ***
+// All data comes from backend API or user creation
+/*
+// OLD DUMMY DATA FUNCTION - REMOVED
 function generateDummyData(): Pick<StoreState, 'materials' | 'parties' | 'transactions'> {
 	const now = new Date();
 	const materials: Material[] = [
@@ -219,263 +237,294 @@ function generateDummyData(): Pick<StoreState, 'materials' | 'parties' | 'transa
 
 	return { materials, parties, transactions };
 }
+*/
 
 // Migrate old transactions to include ledger fields
-function migrateTransactions(transactions: any[]): Transaction[] {
-	return transactions.map((t, index) => {
-		// If transaction already has all ledger fields, return as-is
-		if (t.billNo && typeof t.debit === 'number' && typeof t.credit === 'number' && typeof t.total === 'number') {
-			return t as Transaction;
-		}
-		
-		// Calculate ledger fields for old transactions
-		const totalAmount = (t.quantity || 0) * (t.unitPrice || 0);
-		const debit = t.type === 'Purchase' || t.type === 'Sale' ? totalAmount : 0;
-		const credit = 0;
-		
-		return {
-			...t,
-			billNo: t.billNo || `BILL-MIGRATED-${Date.now()}-${index}`,
-			debit,
-			credit,
-			total: 0, // Will be recalculated below
-		} as Transaction;
-	});
-}
+// Migration functions currently unused as data comes from backend API
+// Kept for potential future use
 
-// Recalculate running balances for migrated transactions
-function recalculateRunningBalances(transactions: Transaction[]): Transaction[] {
-	const transactionsByParty = new Map<string, Transaction[]>();
-	
-	transactions.forEach(t => {
-		if (t.partyId) {
-			if (!transactionsByParty.has(t.partyId)) {
-				transactionsByParty.set(t.partyId, []);
-			}
-			transactionsByParty.get(t.partyId)!.push(t);
-		}
-	});
-	
-	transactionsByParty.forEach((partyTransactions) => {
-		partyTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-		let cumulativeTotal = 0;
-		partyTransactions.forEach(t => {
-			cumulativeTotal = cumulativeTotal + (t.debit || 0) - (t.credit || 0);
-			t.total = cumulativeTotal;
-		});
-	});
-	
-	return transactions;
-}
+// function migrateTransactions(transactions: any[]): Transaction[] {
+// 	return transactions.map((t, index) => {
+// 		if (t.billNo && typeof t.debit === 'number' && typeof t.credit === 'number' && typeof t.total === 'number') {
+// 			return t as Transaction;
+// 		}
+// 		const totalAmount = (t.quantity || 0) * (t.unitPrice || 0);
+// 		const debit = t.type === 'Purchase' || t.type === 'Sale' ? totalAmount : 0;
+// 		const credit = 0;
+// 		return {
+// 			...t,
+// 			billNo: t.billNo || `BILL-MIGRATED-${Date.now()}-${index}`,
+// 			debit,
+// 			credit,
+// 			total: 0,
+// 		} as Transaction;
+// 	});
+// }
 
-function load(): Pick<StoreState, 'materials' | 'parties' | 'transactions'> {
-	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (raw) {
-			const parsed = JSON.parse(raw);
-			// Only return if we have data, otherwise use dummy data
-			if (parsed.materials && parsed.materials.length > 0) {
-				// Migrate transactions if needed
-				if (parsed.transactions && parsed.transactions.length > 0) {
-					const migrated = migrateTransactions(parsed.transactions);
-					const recalculated = recalculateRunningBalances(migrated);
-					return {
-						...parsed,
-						transactions: recalculated,
-					};
-				}
-				return parsed;
-			}
-		}
-	} catch {}
-	// Return dummy data for first-time users
-	return generateDummyData();
-}
+// function recalculateRunningBalances(transactions: Transaction[]): Transaction[] {
+// 	const transactionsByParty = new Map<string, Transaction[]>();
+// 	transactions.forEach(t => {
+// 		if (t.partyId) {
+// 			if (!transactionsByParty.has(t.partyId)) {
+// 				transactionsByParty.set(t.partyId, []);
+// 			}
+// 			transactionsByParty.get(t.partyId)!.push(t);
+// 		}
+// 	});
+// 	transactionsByParty.forEach((partyTransactions) => {
+// 		partyTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+// 		let cumulativeTotal = 0;
+// 		partyTransactions.forEach(t => {
+// 			cumulativeTotal = cumulativeTotal + (t.debit || 0) - (t.credit || 0);
+// 			t.total = cumulativeTotal;
+// 		});
+// 	});
+// 	return transactions;
+// }
 
-const initial = load();
+// *** NO DUMMY DATA: Load function currently unused as data comes from backend API ***
+// Kept for potential future use
+// function load(): Pick<StoreState, 'materials' | 'parties' | 'transactions'> {
+// 	try {
+// 		const raw = localStorage.getItem(STORAGE_KEY);
+// 		if (raw) {
+// 			const parsed = JSON.parse(raw);
+// 			if (parsed.transactions && parsed.transactions.length > 0) {
+// 				const migrated = migrateTransactions(parsed.transactions);
+// 				const recalculated = recalculateRunningBalances(migrated);
+// 				return {
+// 					materials: [],
+// 					parties: parsed.parties || [],
+// 					transactions: recalculated,
+// 				};
+// 			}
+// 			return { 
+// 				materials: [], 
+// 				parties: parsed.parties || [], 
+// 				transactions: parsed.transactions || [] 
+// 			};
+// 		}
+// 	} catch {}
+// 	return { materials: [], parties: [], transactions: [] };
+// }
+
+// const initial = load();
 
 export const useStore = create<StoreState>((set, get) => ({
-	materials: initial.materials,
-	parties: initial.parties,
-	transactions: initial.transactions,
+	materials: [],
+	parties: [],
+	transactions: [],
 
-	addMaterial: (m) => set((s) => {
-		const next: StoreState = { ...s, materials: [...s.materials, { ...m, id: crypto.randomUUID() }] } as StoreState;
-		persist(next);
-		return next;
-	}),
-	updateMaterial: (id, m) => set((s) => {
-		const next: StoreState = { ...s, materials: s.materials.map(x => x.id === id ? { ...x, ...m } : x) } as StoreState;
-		persist(next);
-		return next;
-	}),
-	removeMaterial: (id) => set((s) => {
-		const next: StoreState = { ...s, materials: s.materials.filter(x => x.id !== id) } as StoreState;
-		persist(next);
-		return next;
-	}),
+	// *** LOADING STATES: Initialize as false ***
+	isLoadingMaterials: false,
+	isLoadingParties: false,
+	isLoadingTransactions: false,
 
-	addParty: (p) => set((s) => {
-		const next: StoreState = { ...s, parties: [...s.parties, { ...p, id: crypto.randomUUID() }] } as StoreState;
-		persist(next);
-		return next;
-	}),
-	updateParty: (id, p) => set((s) => {
-		const next: StoreState = { ...s, parties: s.parties.map(x => x.id === id ? { ...x, ...p } : x) } as StoreState;
-		persist(next);
-		return next;
-	}),
-	removeParty: (id) => set((s) => {
-		const next: StoreState = { ...s, parties: s.parties.filter(x => x.id !== id) } as StoreState;
-		persist(next);
-		return next;
-	}),
-
-	addTransaction: (t) => set((s) => {
-		let materialName = undefined;
-		let category = undefined;
-		let updatedMaterials = s.materials;
-
-		if (t.type !== 'Payment' && t.type !== 'Receipt' && t.materialId) {
-			const material = s.materials.find(m => m.id === t.materialId);
-			if (!material) return s;
-			materialName = material.name;
-			category = material.category;
-
-			// update stock
-			const delta = t.type === 'Purchase' ? t.quantity : -t.quantity;
-			updatedMaterials = s.materials.map(m => m.id === material.id ? { ...m, quantity: Math.max(0, m.quantity + delta) } : m);
+	fetchMaterials: async () => {
+		set({ isLoadingMaterials: true });
+		try {
+			const { materials } = await getMaterials();
+			// Map _id to id for frontend compatibility
+			const mappedMaterials = materials.map(m => ({
+				...m,
+				id: m._id,
+			}));
+			set({ materials: mappedMaterials, isLoadingMaterials: false });
+		} catch (error) {
+			console.error('Failed to fetch materials:', error);
+			set({ isLoadingMaterials: false });
 		}
-		
-		const totalAmount = t.quantity * t.unitPrice;
-		
-		let debit = 0;
-		let credit = 0;
+	},
 
-		if (t.type === 'Purchase') {
-			debit = totalAmount;
-		} else if (t.type === 'Sale') {
-			debit = totalAmount; 
-		} else if (t.type === 'Payment') {
-			credit = totalAmount;
-		} else if (t.type === 'Receipt') {
-			credit = totalAmount;
+	addMaterial: async (m) => {
+		try {
+			const { material } = await createMaterial(m as any);
+			set((s) => ({
+				materials: [...s.materials, { ...material, id: material._id }]
+			}));
+		} catch (error) {
+			console.error('Failed to add material:', error);
+			throw error;
 		}
-		
-		const tx: Transaction = {
-			...t,
-			id: crypto.randomUUID(),
-			billNo: generateBillNo(),
-			materialName,
-			category,
-			debit,
-			credit,
-			total: 0, // Will be calculated below
-		};
-		
-		// Recalculate running balances for all transactions of this party (sorted by date ascending)
-		const allPartyTransactions = [...s.transactions.filter(tr => tr.partyId === t.partyId), tx]
-			.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-		
-		let cumulativeTotal = 0;
-		const recalculatedPartyTransactions = allPartyTransactions.map(tr => {
-			cumulativeTotal = cumulativeTotal + tr.debit - tr.credit;
-			return { ...tr, total: cumulativeTotal };
-		});
-		
-		// Merge with other transactions and sort by date descending (newest first)
-		const otherTransactions = s.transactions.filter(tr => tr.partyId !== t.partyId);
-		const updatedTransactions = [...otherTransactions, ...recalculatedPartyTransactions]
-			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-		
-		const next: StoreState = { ...s, materials: updatedMaterials, transactions: updatedTransactions } as StoreState;
-		persist(next);
-		return next;
-	}),
-	updateTransaction: (id, t) => set((s) => {
-		const transaction = s.transactions.find(tx => tx.id === id);
-		if (!transaction) return s;
-		
-		// If materialId changed, get new material info
-		let updatedTransaction = { ...transaction, ...t };
-		if (t.materialId && t.materialId !== transaction.materialId) {
-			const material = s.materials.find(m => m.id === t.materialId);
-			if (material) {
-				updatedTransaction.materialName = material.name;
-				updatedTransaction.category = material.category;
-			}
+	},
+
+	updateMaterial: async (id, m) => {
+		try {
+			const { material } = await apiUpdateMaterial(id, m as any);
+			set((s) => ({
+				materials: s.materials.map(x => x.id === id ? { ...material, id: material._id } : x)
+			}));
+		} catch (error) {
+			console.error('Failed to update material:', error);
+			throw error;
 		}
-		
-		// Recalculate debit/credit based on transaction type and amount
-		const totalAmount = (updatedTransaction.quantity || transaction.quantity) * (updatedTransaction.unitPrice || transaction.unitPrice);
-		const transactionType = updatedTransaction.type || transaction.type;
-		updatedTransaction.debit = transactionType === 'Purchase' ? totalAmount : 0;
-		updatedTransaction.credit = transactionType === 'Sale' ? totalAmount : 0;
-		
-		// Update the transaction in the list
-		const updatedTransactions = s.transactions.map(tx => tx.id === id ? updatedTransaction : tx);
-		
-		// Recalculate running balances for all transactions of this party (sorted by date ascending)
-		const partyId = updatedTransaction.partyId || transaction.partyId;
-		if (partyId) {
-			const partyTransactions = updatedTransactions
-				.filter(tr => tr.partyId === partyId)
-				.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-			
-			let cumulativeTotal = 0;
-			const recalculatedPartyTransactions = partyTransactions.map(tr => {
-				cumulativeTotal = cumulativeTotal + tr.debit - tr.credit;
-				return { ...tr, total: cumulativeTotal };
-			});
-			
-			// Merge with other transactions and sort by date descending (newest first)
-			const otherTransactions = updatedTransactions.filter(tr => tr.partyId !== partyId);
-			const finalTransactions = [...otherTransactions, ...recalculatedPartyTransactions]
-				.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-			
-			const next: StoreState = { ...s, transactions: finalTransactions } as StoreState;
-			persist(next);
-			return next;
+	},
+
+	removeMaterial: async (id) => {
+		try {
+			await apiDeleteMaterial(id);
+			set((s) => ({
+				materials: s.materials.filter(x => x.id !== id)
+			}));
+		} catch (error) {
+			console.error('Failed to remove material:', error);
+			throw error;
 		}
-		
-		const next: StoreState = { ...s, transactions: updatedTransactions } as StoreState;
-		persist(next);
-		return next;
-	}),
-	removeTransaction: (id) => set((s) => {
-		const transaction = s.transactions.find(tx => tx.id === id);
-		if (!transaction) return s;
-		
-		// Remove the transaction
-		const remainingTransactions = s.transactions.filter(x => x.id !== id);
-		
-		// Recalculate running balances for the party's remaining transactions
-		const partyId = transaction.partyId;
-		if (partyId) {
-			const partyTransactions = remainingTransactions
-				.filter(tr => tr.partyId === partyId)
-				.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-			
-			let cumulativeTotal = 0;
-			const recalculatedPartyTransactions = partyTransactions.map(tr => {
-				cumulativeTotal = cumulativeTotal + tr.debit - tr.credit;
-				return { ...tr, total: cumulativeTotal };
-			});
-			
-			// Merge with other transactions and sort by date descending (newest first)
-			const otherTransactions = remainingTransactions.filter(tr => tr.partyId !== partyId);
-			const finalTransactions = [...otherTransactions, ...recalculatedPartyTransactions]
-				.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-			
-			const next: StoreState = { ...s, transactions: finalTransactions } as StoreState;
-			persist(next);
-			return next;
+	},
+
+	fetchParties: async () => {
+		set({ isLoadingParties: true });
+		try {
+			const { parties } = await getParties();
+			// *** FIX: Map _id to id and preserve all fields including items ***
+			const mappedParties = parties.map(p => ({
+				...p,
+				id: p._id,
+				items: p.items || [] // Ensure items array exists
+			}));
+			set({ parties: mappedParties, isLoadingParties: false });
+		} catch (error) {
+			console.error('Failed to fetch parties:', error);
+			set({ isLoadingParties: false });
 		}
-		
-		const next: StoreState = { ...s, transactions: remainingTransactions } as StoreState;
-		persist(next);
-		return next;
-	}),
+	},
+
+	addParty: async (p) => {
+		try {
+			// *** FIX: Ensure items are passed to API ***
+			await apiCreateParty(p as any);
+			
+			// *** FIX: Refetch all parties to ensure we have complete data with items ***
+			const { parties } = await getParties();
+			const mappedParties = parties.map(party => ({
+				...party,
+				id: party._id,
+				items: party.items || []
+			}));
+			set({ parties: mappedParties });
+		} catch (error) {
+			console.error('Failed to add party:', error);
+			throw error;
+		}
+	},
+
+	updateParty: async (id, p) => {
+		try {
+			// *** FIX: Ensure items are passed to API ***
+			await apiUpdateParty(id, p as any);
+			
+			// *** FIX: Refetch all parties to ensure we have complete data with items ***
+			const { parties } = await getParties();
+			const mappedParties = parties.map(party => ({
+				...party,
+				id: party._id,
+				items: party.items || []
+			}));
+			set({ parties: mappedParties });
+		} catch (error) {
+			console.error('Failed to update party:', error);
+			throw error;
+		}
+	},
+
+	removeParty: async (id) => {
+		try {
+			await apiDeleteParty(id);
+			set((s) => ({
+				parties: s.parties.filter(x => x.id !== id)
+			}));
+		} catch (error) {
+			console.error('Failed to remove party:', error);
+			throw error;
+		}
+	},
+
+	fetchTransactions: async () => {
+		set({ isLoadingTransactions: true });
+		try {
+			const { transactions } = await getTransactions();
+			// Map _id to id for frontend compatibility
+			const mappedTransactions = transactions.map(t => ({
+				...t,
+				id: t._id,
+			}));
+			set({ transactions: mappedTransactions, isLoadingTransactions: false });
+			// Refetch materials to get updated quantities
+			const { materials } = await getMaterials();
+			const mappedMaterials = materials.map(m => ({
+				...m,
+				id: m._id,
+			}));
+			set({ materials: mappedMaterials });
+		} catch (error) {
+			console.error('Failed to fetch transactions:', error);
+			set({ isLoadingTransactions: false });
+		}
+	},
+
+	addTransaction: async (t) => {
+		try {
+			const { transaction } = await apiCreateTransaction(t as any);
+			set((s) => ({
+				transactions: [{ ...transaction, id: transaction._id }, ...s.transactions]
+			}));
+			// Refetch materials to get updated quantities
+			const { materials } = await getMaterials();
+			const mappedMaterials = materials.map(m => ({
+				...m,
+				id: m._id,
+			}));
+			set({ materials: mappedMaterials });
+		} catch (error) {
+			console.error('Failed to add transaction:', error);
+			throw error;
+		}
+	},
+	updateTransaction: async (id, t) => {
+		try {
+			await apiUpdateTransaction(id, t as any);
+			// Refetch all transactions to get updated balances
+			const { transactions } = await getTransactions();
+			const mappedTransactions = transactions.map(tx => ({
+				...tx,
+				id: tx._id,
+			}));
+			set({ transactions: mappedTransactions });
+			// Refetch materials to get updated quantities
+			const { materials } = await getMaterials();
+			const mappedMaterials = materials.map(m => ({
+				...m,
+				id: m._id,
+			}));
+			set({ materials: mappedMaterials });
+		} catch (error) {
+			console.error('Failed to update transaction:', error);
+			throw error;
+		}
+	},
+
+	removeTransaction: async (id) => {
+		try {
+			await apiDeleteTransaction(id);
+			// Refetch all transactions to get updated balances
+			const { transactions } = await getTransactions();
+			const mappedTransactions = transactions.map(tx => ({
+				...tx,
+				id: tx._id,
+			}));
+			set({ transactions: mappedTransactions });
+			// Refetch materials to get updated quantities
+			const { materials } = await getMaterials();
+			const mappedMaterials = materials.map(m => ({
+				...m,
+				id: m._id,
+			}));
+			set({ materials: mappedMaterials });
+		} catch (error) {
+			console.error('Failed to remove transaction:', error);
+			throw error;
+		}
+	},
 
 	getMaterialById: (id) => get().materials.find(m => m.id === id),
 	getPartyById: (id) => get().parties.find(p => p.id === id),
@@ -488,5 +537,3 @@ export const useStore = create<StoreState>((set, get) => ({
 		return { totalPurchases, totalSales, stockValue, profit };
 	},
 }));
-
-

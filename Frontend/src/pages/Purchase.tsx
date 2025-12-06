@@ -8,10 +8,16 @@ import { AddPaymentModal } from '../components/AddPaymentModal';
 export default function Purchase() {
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
-	const { parties, transactions } = useStore();
+	const { parties, transactions, fetchParties, fetchTransactions } = useStore();
 	const [searchQuery, setSearchQuery] = useState('');
 	const [modalOpen, setModalOpen] = useState(false);
 	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+	// Fetch parties and transactions on mount
+	useEffect(() => {
+		fetchParties();
+		fetchTransactions();
+	}, [fetchParties, fetchTransactions]);
 
 	useEffect(() => {
 		if (searchParams.get('new') === 'purchase') {

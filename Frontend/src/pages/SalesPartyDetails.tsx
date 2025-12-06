@@ -69,13 +69,15 @@ export default function SalesPartyDetails() {
 
 
 
-	const handleDelete = () => {
+	// *** ERROR HANDLING: Async function to properly catch API errors ***
+	const handleDelete = async () => {
 		try {
-			removeTransaction(deleteDialog.transactionId);
+			await removeTransaction(deleteDialog.transactionId);
 			toast.success('Transaction deleted successfully');
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Failed to delete transaction:', error);
-			toast.error('Failed to delete transaction');
+			// *** ERROR HANDLING: Show actual API error message ***
+			toast.error(error.message || 'Failed to delete transaction');
 		}
 	};
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useStore } from '../store/store';
 
 function Bar({ label, value, max, gradient }: { label: string; value: number; max: number; gradient?: string }) {
@@ -15,8 +15,14 @@ function Bar({ label, value, max, gradient }: { label: string; value: number; ma
 }
 
 export default function Reports() {
-	const { transactions, materials, getTotals } = useStore();
+	const { transactions, materials, getTotals, fetchTransactions, fetchMaterials } = useStore();
 	const { stockValue } = getTotals();
+
+	// Fetch data on mount
+	useEffect(() => {
+		fetchTransactions();
+		fetchMaterials();
+	}, [fetchTransactions, fetchMaterials]);
 
 	const byType = useMemo(() => {
 		const purchase = transactions.filter(t => t.type === 'Purchase').reduce((a, t) => a + t.quantity * t.unitPrice, 0);

@@ -3,11 +3,22 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import connectDB from './Config/dbConnection.js';
 import users from './routes/users.js';
+import materials from './routes/materials.js';
+import transactions from './routes/transactions.js';
+import parties from './routes/parties.js';
+import { authenticate } from './middleware/authMiddleware.js';
 
 dotenv.config();
 const app = express();
+
+// Enable CORS for frontend
+app.use(cors({
+  origin: 'http://localhost:5173', // Vite default port
+  credentials: true
+}));
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -15,10 +26,15 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // Routes
-app.use('/api', (req, res) => {
+app.use('/users', users);
+app.use('/api/materials', authenticate, materials);
+app.use('/api/transactions', authenticate, transactions);
+app.use('/api/parties', authenticate, parties);
+
+// Welcome route (must be after specific routes)
+app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to the API' });
 });
-app.use('/users', users);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

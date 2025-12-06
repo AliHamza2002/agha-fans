@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Party, PartyType } from '../store/store';
 import { useStore } from '../store/store';
-import { Plus, Trash2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Pencil, Users } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog';
 import { useAuth } from '../contexts/AuthContext';
+import { Loader, EmptyState } from '../components/Loader';
 
 interface PartyItem {
 	id: number;
@@ -28,7 +29,12 @@ function Modal({ open, onClose, children, title }: { open: boolean; onClose: () 
 }
 
 export default function Parties() {
-	const { parties, addParty, updateParty, removeParty, transactions } = useStore();
+	const { parties, addParty, updateParty, removeParty, transactions, fetchParties, isLoadingParties } = useStore();
+	
+	// Fetch parties on mount
+	useEffect(() => {
+		fetchParties();
+	}, [fetchParties]);
 	const { user } = useAuth();
 	const [open, setOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -56,31 +62,59 @@ export default function Parties() {
 		));
 	};
 
-	function submit() {
+	// *** ERROR HANDLING: Async function to properly catch API errors ***
+	async function submit() {
 		if (!form.name.trim()) {
 			toast.error('Party name is required');
 			return;
 		}
 
-		// Validate items - only check if any items have data
-		const itemsWithData = items.filter(item => item.itemName.trim() || item.itemPrice > 0);
-		if (itemsWithData.length > 0) {
-			const hasIncompleteItems = itemsWithData.some(item => 
-				!item.itemName.trim() || (isAdmin && item.itemPrice <= 0)
+		// *** FEATURE: Validate items - must have at least one valid item ***
+		// *** ROLE-BASED: Admin requires price > 0, StoreBoy can have price 0 ***
+		const validItems = isAdmin 
+			? items.filter(item => item.itemName.trim() && item.itemPrice > 0)
+			: items.filter(item => item.itemName.trim());
+		
+		if (validItems.length === 0) {
+			toast.error('A party must contain at least one item with a name.');
+			return;
+		}
+
+		// Check for incomplete items
+		// *** ROLE-BASED: Only Admin needs to validate price > 0 ***
+		const hasIncompleteItems = isAdmin 
+			? items.some(item => 
+				(item.itemName.trim() && item.itemPrice <= 0) || 
+				(!item.itemName.trim() && item.itemPrice > 0)
+			)
+			: items.some(item => 
+				!item.itemName.trim() && items.indexOf(item) < items.length - 1
 			);
-			if (hasIncompleteItems) {
-				toast.error('Please complete all item entries or remove empty rows');
-				return;
-			}
+		
+		if (hasIncompleteItems) {
+			const errorMsg = isAdmin 
+				? 'Please complete all item entries (name and price) or remove empty rows'
+				: 'Please complete all item names or remove empty rows';
+			toast.error(errorMsg);
+			return;
 		}
 
 		try {
-			// For now, just save party info (items can be stored in extended party data later)
+			// *** FEATURE: Include items in party data ***
+			const partyData = {
+				...form,
+				items: validItems.map(({ itemName, itemPrice }) => ({ itemName, itemPrice }))
+			};
+
+			// *** DEBUG: Log the data being sent ***
+			console.log('Party data being sent:', partyData);
+			console.log('Items count:', partyData.items.length);
+
 			if (editingId) {
-				updateParty(editingId, form);
+				await updateParty(editingId, partyData);
 				toast.success('Party updated successfully');
 			} else {
-				addParty(form);
+				await addParty(partyData);
 				toast.success('Party added successfully');
 			}
 			setOpen(false);
@@ -88,25 +122,42 @@ export default function Parties() {
 			setForm({ name: '', type: 'Buyer', contact: '' });
 			setItems([{ id: 1, itemName: '', itemPrice: 0 }]);
 			setNextId(2);
-		} catch (error) {
-			toast.error('Failed to save party');
+		} catch (error: any) {
+			// *** ERROR HANDLING: Show actual API error message ***
+			toast.error(error.message || 'Failed to save party');
 		}
 	}
 
-	function handleDelete() {
+	// *** ERROR HANDLING: Show proper error messages from API ***
+	async function handleDelete() {
 		try {
-			removeParty(deleteDialog.partyId);
+			await removeParty(deleteDialog.partyId);
 			toast.success('Party deleted successfully');
-		} catch (error) {
-			toast.error('Failed to delete party');
+		} catch (error: any) {
+			// Show the actual error message from API (e.g., "Cannot delete party with existing transactions")
+			toast.error(error.message || 'Failed to delete party');
+		} finally {
+			setDeleteDialog({ open: false, partyId: '', partyName: '' });
 		}
 	}
 
 	function openEdit(p: Party) {
 		setEditingId(p.id);
 		setForm({ name: p.name, type: p.type, contact: p.contact });
-		setItems([{ id: 1, itemName: '', itemPrice: 0 }]);
-		setNextId(2);
+		
+		// *** FEATURE: Load existing items when editing ***
+		if (p.items && p.items.length > 0) {
+			setItems(p.items.map((item, index) => ({
+				id: index + 1,
+				itemName: item.itemName,
+				itemPrice: item.itemPrice
+			})));
+			setNextId(p.items.length + 1);
+		} else {
+			setItems([{ id: 1, itemName: '', itemPrice: 0 }]);
+			setNextId(2);
+		}
+		
 		setOpen(true);
 	}
 
@@ -127,42 +178,65 @@ export default function Parties() {
 				</button>
 			</div>
 
-			<div className="bg-whitebg-slate-800 rounded-2xl p-5 shadow-soft border border-slate-200border-slate-700 overflow-auto">
-				<table className="min-w-full text-sm">
-					<thead>
-						<tr className="text-center text-slate-600text-slate-400 border-b border-slate-200border-slate-700">
-							<th className="p-3 font-semibold">Name</th>
-							<th className="p-3 font-semibold">Type</th>
-							<th className="p-3 font-semibold">Contact</th>
-							<th className="p-3 font-semibold">Total Transactions</th>
-							<th className="p-3 font-semibold">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						{parties.map(p => {
-							const count = transactions.filter(t => t.partyId === p.id).length;
-							return (
-								<tr key={p.id} className="border-b border-slate-100border-slate-700 hover:bg-indigo-50/50hover:bg-indigo-900/20 transition">
-									<td className="p-3 font-semibold text-slate-900text-slate-100 text-center">{p.name}</td>
-									<td className="p-3 text-center">
-										<span className={`px-2 py-1 rounded-full text-xs font-medium ${p.type === 'Supplier' ? 'bg-blue-100bg-blue-900/50 text-blue-700text-blue-300' : 'bg-emerald-100bg-emerald-900/50 text-emerald-700text-emerald-300'}`}>
-											{p.type}
-										</span>
-									</td>
-									<td className="p-3 text-slate-600text-slate-400 text-center">{p.contact ?? '-'}</td>
-									<td className="p-3 font-medium text-slate-900text-slate-100 text-center">{count}</td>
-									<td className="p-3 text-center">
-										<div className="flex gap-2 justify-center">
-											<button className="px-2 py-1.5 rounded-lg border border-slate-300border-slate-600 hover:bg-indigo-50hover:bg-indigo-900/30 hover:border-indigo-300hover:border-indigo-600 text-indigo-600text-indigo-400 transition" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></button>
-											<button className="px-2 py-1.5 rounded-lg border border-red-200border-red-800 hover:bg-red-50hover:bg-red-900/30 text-red-600text-red-400 transition" onClick={() => setDeleteDialog({ open: true, partyId: p.id, partyName: p.name })}><Trash2 className="h-4 w-4" /></button>
-										</div>
-									</td>
-								</tr>
-							);
-						})}
-					</tbody>
-				</table>
-			</div>
+			{/* *** LOADING STATE *** */}
+			{isLoadingParties ? (
+				<div className="bg-white rounded-2xl p-5 shadow-soft border border-slate-200 overflow-auto">
+					<Loader message="Loading parties..." />
+				</div>
+			) : parties.length === 0 ? (
+				<div className="bg-white rounded-2xl p-5 shadow-soft border border-slate-200 overflow-auto">
+					<EmptyState 
+						icon={Users}
+						title="No parties yet"
+						description="Add suppliers and buyers to start managing your business relationships."
+						action={
+							<button 
+								className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl hover:bg-brand-hover transition shadow-md font-medium" 
+								onClick={openAdd}
+							>
+								<Plus className="h-4 w-4" /> Add Party
+							</button>
+						}
+					/>
+				</div>
+			) : (
+				<div className="bg-whitebg-slate-800 rounded-2xl p-5 shadow-soft border border-slate-200border-slate-700 overflow-auto">
+					<table className="min-w-full text-sm">
+						<thead>
+							<tr className="text-center text-slate-600text-slate-400 border-b border-slate-200border-slate-700">
+								<th className="p-3 font-semibold">Name</th>
+								<th className="p-3 font-semibold">Type</th>
+								<th className="p-3 font-semibold">Contact</th>
+								<th className="p-3 font-semibold">Total Transactions</th>
+								<th className="p-3 font-semibold">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{parties.map(p => {
+								const count = transactions.filter(t => t.partyId === p.id).length;
+								return (
+									<tr key={p.id} className="border-b border-slate-100border-slate-700 hover:bg-indigo-50/50hover:bg-indigo-900/20 transition">
+										<td className="p-3 font-semibold text-slate-900text-slate-100 text-center">{p.name}</td>
+										<td className="p-3 text-center">
+											<span className={`px-2 py-1 rounded-full text-xs font-medium ${p.type === 'Supplier' ? 'bg-blue-100bg-blue-900/50 text-blue-700text-blue-300' : 'bg-emerald-100bg-emerald-900/50 text-emerald-700text-emerald-300'}`}>
+												{p.type}
+											</span>
+										</td>
+										<td className="p-3 text-slate-600text-slate-400 text-center">{p.contact ?? '-'}</td>
+										<td className="p-3 font-medium text-slate-900text-slate-100 text-center">{count}</td>
+										<td className="p-3 text-center">
+											<div className="flex gap-2 justify-center">
+												<button className="px-2 py-1.5 rounded-lg border border-slate-300border-slate-600 hover:bg-indigo-50hover:bg-indigo-900/30 hover:border-indigo-300hover:border-indigo-600 text-indigo-600text-indigo-400 transition" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></button>
+												<button className="px-2 py-1.5 rounded-lg border border-red-200border-red-800 hover:bg-red-50hover:bg-red-900/30 text-red-600text-red-400 transition" onClick={() => setDeleteDialog({ open: true, partyId: p.id, partyName: p.name })}><Trash2 className="h-4 w-4" /></button>
+											</div>
+										</td>
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
+			)}
 
 			<Modal open={open} onClose={() => setOpen(false)} title={editingId ? 'Edit Party' : 'Add Party'}>
 				<div className="space-y-4">
@@ -172,13 +246,13 @@ export default function Parties() {
 							<label className="text-xs font-medium text-slate-700text-slate-300 mb-1 block">Name</label>
 							<input className="w-full px-3 py-2.5 border border-slate-300border-slate-600bg-slate-700text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
 						</div>
-						<div>
-							<label className="text-xs font-medium text-slate-700text-slate-300 mb-1 block">Type</label>
-							<select className="w-full px-3 py-2.5 border border-slate-300border-slate-600bg-slate-700text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as PartyType })}>
-								<option>Buyer</option>
-								<option>Supplier</option>
-							</select>
-						</div>
+					<div>
+						<label className="text-xs font-medium text-slate-700text-slate-300 mb-1 block">Type</label>
+						<select className="w-full px-3 py-2.5 border border-slate-300border-slate-600bg-slate-700text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-9" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as PartyType })}>
+							<option>Buyer</option>
+							<option>Supplier</option>
+						</select>
+					</div>
 						<div>
 							<label className="text-xs font-medium text-slate-700text-slate-300 mb-1 block">Contact</label>
 							<input className="w-full px-3 py-2.5 border border-slate-300border-slate-600bg-slate-700text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />

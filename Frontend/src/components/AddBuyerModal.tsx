@@ -183,18 +183,18 @@ export function AddBuyerModal({ isOpen, onClose, onSave, finishedMaterials }: Ad
 										<label className="text-xs font-medium text-slate-600 mb-1 block">
 											Item Name
 										</label>
-										<select
-											className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-											value={item.itemName}
-											onChange={e => updateItem(item.id, 'itemName', e.target.value)}
-										>
-											<option value="">Select item...</option>
-											{finishedMaterials.map(material => (
-												<option key={material.id} value={material.name}>
-													{material.name}
-												</option>
-											))}
-										</select>
+								<select
+									className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-9"
+									value={item.itemName}
+									onChange={e => updateItem(item.id, 'itemName', e.target.value)}
+								>
+									<option value="">Select item...</option>
+									{finishedMaterials.map(material => (
+										<option key={material.id} value={material.name}>
+											{material.name}
+										</option>
+									))}
+								</select>
 									</div>
 
 									<div className="w-24">

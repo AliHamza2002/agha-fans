@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Eye, Search, Receipt, PlusCircle } from 'lucide-react';
 import { useStore } from '../store/store';
@@ -7,10 +7,16 @@ import { AddSaleModal } from '../components/AddSaleModal';
 
 export default function Sales() {
 	const navigate = useNavigate();
-	const { parties, transactions } = useStore();
+	const { parties, transactions, fetchParties, fetchTransactions } = useStore();
 	const [searchQuery, setSearchQuery] = useState('');
 	const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 	const [saleModalOpen, setSaleModalOpen] = useState(false);
+
+	// Fetch parties and transactions on mount
+	useEffect(() => {
+		fetchParties();
+		fetchTransactions();
+	}, [fetchParties, fetchTransactions]);
 
 	// Filter parties to show only Buyers
 	const buyerParties = useMemo(() => {

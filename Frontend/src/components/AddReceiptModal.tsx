@@ -56,8 +56,9 @@ export function AddReceiptModal({ isOpen, onClose }: AddReceiptModalProps) {
 
 			toast.success('Receipt recorded successfully');
 			onClose();
-		} catch (error) {
-			toast.error('Failed to save receipt');
+		} catch (error: any) {
+			// *** ERROR HANDLING: Show actual API error message ***
+			toast.error(error.message || 'Failed to save receipt');
 		}
 	};
 
@@ -86,21 +87,21 @@ export function AddReceiptModal({ isOpen, onClose }: AddReceiptModalProps) {
 
 				{/* Form */}
 				<div className="space-y-4">
-					<div>
-						<label className="text-xs font-medium text-slate-700 mb-1 block">
-							Buyer <span className="text-red-500">*</span>
-						</label>
-						<select
-							className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-							value={buyerId}
-							onChange={e => setBuyerId(e.target.value)}
-						>
-							<option value="">Select Buyer...</option>
-							{buyers.map(b => (
-								<option key={b.id} value={b.id}>{b.name}</option>
-							))}
-						</select>
-					</div>
+				<div>
+					<label className="text-xs font-medium text-slate-700 mb-1 block">
+						Buyer <span className="text-red-500">*</span>
+					</label>
+					<select
+						className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-9"
+						value={buyerId}
+						onChange={e => setBuyerId(e.target.value)}
+					>
+						<option value="">Select Buyer...</option>
+						{buyers.map(b => (
+							<option key={b.id} value={b.id}>{b.name}</option>
+						))}
+					</select>
+				</div>
 
 					<div>
 						<label className="text-xs font-medium text-slate-700 mb-1 block">

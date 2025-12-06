@@ -1,6 +1,6 @@
 import { useStore } from '../store/store';
 import { Link } from 'react-router-dom';
-import { IndianRupee, PlusCircle, Receipt, TrendingUp } from 'lucide-react';
+import { IndianRupee, TrendingUp } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 function StatCard({ title, value, icon, gradient }: { title: string; value: string; icon: ReactNode; gradient?: string }) {
@@ -28,15 +28,6 @@ export default function Dashboard() {
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<h1 className="text-2xl md:text-3xl font-bold text-slate-900text-slate-100">Dashboard</h1>
-				<div className="flex gap-2 flex-wrap">
-					<Link to="/purchase?new=purchase" className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl hover:bg-brand-hover transition shadow-md font-medium">
-						<PlusCircle className="h-4 w-4" /> Add Purchase
-					</Link>
-					<Link to="/sales?new=sale" className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition shadow-md font-medium">
-						<Receipt className="h-4 w-4" /> Add Sale
-					</Link>
-					<Link to="/sales" className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-300border-slate-600 rounded-xl hover:bg-slate-50hover:bg-slate-800 transition font-medium text-slate-700text-slate-300">View Ledger</Link>
-				</div>
 			</div>
 
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
