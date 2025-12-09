@@ -16,7 +16,7 @@ const app = express();
 
 // Enable CORS for frontend
 app.use(cors({
-  origin: 'http://localhost:5173', // Vite default port
+  origin: ['http://localhost:5173', 'https://agha-fans.vercel.app'], // Vite default port and production frontend
   credentials: true
 }));
 
