@@ -1,6 +1,6 @@
 import type { UserRole } from '../contexts/AuthContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://agha-fans-backend.vercel.app';
 
 export interface RegisterUserRequest {
 	name: string;

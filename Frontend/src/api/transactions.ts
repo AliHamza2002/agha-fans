@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://agha-fans-backend.vercel.app';
 
 export interface Transaction {
 	_id: string;
@@ -31,7 +31,7 @@ export interface CreateTransactionRequest {
 	notes?: string;
 }
 
-export interface UpdateTransactionRequest extends Partial<CreateTransactionRequest> {}
+export interface UpdateTransactionRequest extends Partial<CreateTransactionRequest> { }
 
 // Helper to get user email from localStorage
 const getUserEmail = (): string | null => {
@@ -41,7 +41,7 @@ const getUserEmail = (): string | null => {
 			const parsed = JSON.parse(authData);
 			return parsed.user?.email || null;
 		}
-	} catch {}
+	} catch { }
 	return null;
 };
 

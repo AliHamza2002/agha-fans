@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://agha-fans-backend.vercel.app';
 
 // *** FEATURE: Party Item interface ***
 export interface PartyItem {
@@ -25,7 +25,7 @@ export interface CreatePartyRequest {
 	items: PartyItem[]; // *** FEATURE: Items required for creation ***
 }
 
-export interface UpdatePartyRequest extends Partial<CreatePartyRequest> {}
+export interface UpdatePartyRequest extends Partial<CreatePartyRequest> { }
 
 // Helper to get user email from localStorage
 const getUserEmail = (): string | null => {
@@ -35,7 +35,7 @@ const getUserEmail = (): string | null => {
 			const parsed = JSON.parse(authData);
 			return parsed.user?.email || null;
 		}
-	} catch {}
+	} catch { }
 	return null;
 };
 
